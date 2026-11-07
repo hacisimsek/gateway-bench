@@ -1,0 +1,5 @@
+# Default routes for Docker Compose. In Kubernetes a ConfigMap is mounted over this file.
+routes:
+  - id: users
+    path: /users
+    uri: http://upstream:9000

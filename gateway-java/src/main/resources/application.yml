@@ -5,6 +5,16 @@ spring:
     virtual:
       # Every request runs on its own virtual thread instead of a pooled platform thread.
       enabled: true
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          # Default routes for Docker Compose. In Kubernetes a ConfigMap overrides them.
+          routes:
+            - id: users
+              uri: http://upstream:9000
+              predicates:
+                - Path=/users/**
 
 server:
   port: 8080

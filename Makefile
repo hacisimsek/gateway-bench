@@ -3,7 +3,7 @@ RUST_IMAGE := rust:1.98.1-slim-trixie
 JDK_IMAGE  := eclipse-temurin:25-jdk-noble
 RUST_CRATES := upstream gateway-rust
 
-.PHONY: lock test build up down smoke
+.PHONY: lock test build up down smoke bench-s1
 
 lock: ## Regenerate Cargo.lock files
 	@for c in $(RUST_CRATES); do docker run --rm -v "$(CURDIR)/$$c":/app -w /app $(RUST_IMAGE) cargo generate-lockfile; done
@@ -25,3 +25,6 @@ smoke: ## Check every service answers its health endpoint
 	curl -fsS localhost:9000/healthz && echo " upstream"
 	curl -fsS localhost:8081/healthz && echo " gateway-rust"
 	curl -fsS localhost:8082/actuator/health/readiness && echo " gateway-java"
+
+bench-s1: ## S1 passthrough baseline (≈25 min for 3 runs); results in bench/results/s1/
+	bench/run-s1.sh 3

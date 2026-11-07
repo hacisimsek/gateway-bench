@@ -5,6 +5,7 @@ services:
     environment:
       SERVICE_NAME: users
     ports: ["9000:9000"]
+    cpus: 4
 
   gateway-rust:
     build: ./gateway-rust
@@ -19,3 +20,10 @@ services:
     cpus: 2
     mem_limit: 512m
     depends_on: [upstream]
+
+  # Load generator, only started by bench scripts (docker compose --profile bench run k6 ...).
+  k6:
+    image: grafana/k6:1.4.2
+    profiles: [bench]
+    cpus: 4
+    volumes: ["./bench:/bench"]

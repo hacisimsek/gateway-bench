@@ -8,6 +8,7 @@ RUN touch src/main.rs && cargo build --release --locked
 
 FROM debian:trixie-slim
 COPY --from=build /app/target/release/gateway-rust /usr/local/bin/gateway-rust
+COPY routes.yaml /etc/gateway/routes.yaml
 USER 65534
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/gateway-rust"]
