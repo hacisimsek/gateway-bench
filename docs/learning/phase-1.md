@@ -37,7 +37,33 @@ Limits: each gateway 2 CPU / 512 MiB · upstream 4 CPU · k6 4 CPU · Apple M4 P
   - Throughput fell *below* what it handled at 10k. Overload doesn't plateau, it collapses.
 - **Container defaults matter as much as the language.** "Java in a 512 MiB container with
   default flags" and "Java tuned for its container" are different things to measure.
-  Phase 1 reports the default; a tuned run is the next experiment.
+
+## Experiment: same limits, G1 instead of Serial
+
+Same 2 CPU / 512 MiB, only `-XX:+UseG1GC` added
+([results](../../bench/results/s1/20261107-171124-java-g1/results.md), median of 3 runs).
+
+| Java @ 20k offered | Serial (default) | G1 |
+|---|---:|---:|
+| achieved rps | 4 382 | **7 499** |
+| p50 | 435 ms | **153 ms** |
+| p99 | **867 ms** | 4 746 ms |
+| CPU | 124 % | 193 % |
+| time paused in GC (30 s, GC-logged run) | 24.0 s (80 %) | 15.6 s (52 %) |
+| full GCs in 30 s | 193 | 123 |
+
+- **G1 helps throughput by ~70 %** and finally uses the whole CPU budget, because collection
+  work runs on multiple threads instead of one.
+- **But the tail gets worse.** G1 keeps most requests moving and lets a few wait behind
+  repeated full GCs, so p50 improves while p99 jumps to seconds.
+- **The real limit is memory, not the collector.** After every full GC, ~270 MiB of the
+  384 MiB heap is still live. That is the backlog: ~2 000 requests in flight, each holding
+  buffers on the Tomcat side and the upstream-client side. A bigger heap or fewer in-flight
+  requests would help more than another GC.
+- **Rust handled the same 20k rps in ~70 MiB.** Memory per in-flight request is the
+  difference to watch in later phases (S4 pushes exactly this).
+- Java's comfortable ceiling here is around 10k rps (162 % CPU at 10k); beyond that, any
+  overload turns into a memory problem.
 
 ## Caveats
 

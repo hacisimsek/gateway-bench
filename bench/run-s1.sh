@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # S1 baseline: direct-to-upstream, gateway-rust, gateway-java at the same request rates.
 # Usage: bench/run-s1.sh [runs]   (stack must be up: make up)
+#   ONLY="java" LABEL=java-g1 bench/run-s1.sh 3   # one target, results folder suffixed with the label
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 RUNS=${1:-3}
 RATES=(1000 5000 10000 20000)
 WARMUP_RATE=5000
-TARGETS=("direct:http://upstream:9000:upstream" "rust:http://gateway-rust:8080:gateway-rust" "java:http://gateway-java:8080:gateway-java")
-OUT=bench/results/s1/$(date +%Y%m%d-%H%M%S)
+ALL_TARGETS=("direct:http://upstream:9000:upstream" "rust:http://gateway-rust:8080:gateway-rust" "java:http://gateway-java:8080:gateway-java")
+TARGETS=()
+for t in "${ALL_TARGETS[@]}"; do [[ -z "${ONLY:-}" || " $ONLY " == *" ${t%%:*} "* ]] && TARGETS+=("$t"); done
+OUT=bench/results/s1/$(date +%Y%m%d-%H%M%S)${LABEL:+-$LABEL}
 mkdir -p "$OUT"
 
 {
@@ -16,6 +19,7 @@ mkdir -p "$OUT"
   echo "host: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m), docker cpus=$(docker info -f '{{.NCPU}}') mem=$(docker info -f '{{.MemTotal}}')"
   echo "commit: $(git rev-parse --short HEAD)$(git diff --quiet || echo '-dirty')"
   echo "limits: gateways 2 cpu/512m, upstream 4 cpu, k6 4 cpu"
+  echo "java options: $(docker inspect gateway-bench-gateway-java-1 -f '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^JAVA_TOOL_OPTIONS=//p')"
 } > "$OUT/env.txt"
 
 k6() { docker compose --profile bench run --rm -q k6 run -q "$@" /bench/k6/s1-passthrough.js >/dev/null; }
