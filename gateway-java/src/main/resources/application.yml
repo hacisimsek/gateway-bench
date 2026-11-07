@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: gateway-java
+  threads:
+    virtual:
+      # Every request runs on its own virtual thread instead of a pooled platform thread.
+      enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # /actuator/health/liveness and /actuator/health/readiness for Kubernetes probes
+      probes:
+        enabled: true
