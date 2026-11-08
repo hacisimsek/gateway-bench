@@ -30,7 +30,12 @@ for gw in rust:8081 java:8082; do
   extra=$(refill_since "$t0")
   ok=$(count 200 <<< "$codes"); limited=$(count 429 <<< "$codes")
   check "$name: 30 parallel, burst $BURST" "$( ((ok >= BURST && ok <= BURST + extra && ok + limited == 30)) && echo true || echo false)" "200=$ok 429=$limited"
-  retry=$(curl -s -D - -o /dev/null -H "Authorization: Bearer $t" "localhost:$port/users/1" | tr -d '\r' | grep -i '^retry-after:' || true)
+  # Look at an actual 429: on a slow runner a token may have refilled, so the next call can be a 200.
+  retry=""
+  for _ in $(seq 25); do
+    headers=$(curl -s -D - -o /dev/null -H "Authorization: Bearer $t" "localhost:$port/users/1" | tr -d '\r')
+    if grep -q '^HTTP/[0-9.]* 429' <<< "$headers"; then retry=$(grep -i '^retry-after:' <<< "$headers" || true); break; fi
+  done
   check "$name: 429 carries Retry-After" "$([[ -n $retry ]] && echo true || echo false)" "${retry:-missing}"
 done
 
