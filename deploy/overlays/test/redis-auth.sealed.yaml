@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: redis-auth
+  namespace: gateway-test
+spec:
+  encryptedData:
+    password: AgAgpruJ6gQjvpB4lzYWIn3SoKAiuLwaPGzhleDsaCQhBNq5H/SKjqUpZ99Splm1ZMuvFMkf2iKeYmQ76A05jso7OYH/n8YSmWYRnn3yuhbe8zWxPsMNhir4cOw8+twkGhIkWfl6UPH62NVjHK1yGx1QwPeL/xs/JR46JyyYG4lsdb8j7aMIdSlxNWV4wK9SQWwG7AG+lzQe+PE5qE9EtzqfvqIYlvkXBytVzHih/h0WGjyS/HQQGsBIlWO17iNgcv9ViQGb8Qa3V8n6FYZYuKY4q0VwLpA5V7szK24ETeCmr5UNNuGhyP50cYQpoO+uPPYaAKc37A72do0HY2C7sv1v3PkFv7MAWE7E7qatoFPDUfyQMmK2WnDoVaMQdxJK6K4DXm9UTknv1HWbTFs+ZrHejWiS+TZ7ZzzkJRQiaOiQ8nY/oqpl05o2haWkZLuDoPrEiZCSC7FKoRQcl5W114QBFApxVSkbCVj+fYrR/tPRvFywY1kh8qFtCEZqpAHaTuV9DHpHY9yRRkLUbYB8PG0RpES5YNj9DTR1vH+bLtp97rgaKxW6XFLd8F+9jFlqs+Xk2ahEm1kBl/O9qrvIN87trh1e+24TwUmNETKW7rAe8m1AwnipwSFV4xjoxF/Zj+ATDUkGpBeiv7lEuh6ePvkgzrSJUuWgjNKTt6uuyYK27onlgKiJ/SPXy7bYgGTfTje5fFVPex1vkJIFgV5nk5GF+1VDfCzLzVzBlQ+AkP2erO1m2LwsQQ/iC0PFsR3P42A=
+  template:
+    metadata:
+      name: redis-auth
+      namespace: gateway-test

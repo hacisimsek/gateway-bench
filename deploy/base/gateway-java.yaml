@@ -1,0 +1,63 @@
+# Kept line-for-line parallel with gateway-rust.yaml: same resources, same probes, same shutdown.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-java
+  labels: { app: gateway-java }
+spec:
+  # No replicas field: 1 by default, and in prod the HPA owns it (Argo CD would fight it otherwise).
+  selector:
+    matchLabels: { app: gateway-java }
+  template:
+    metadata:
+      labels: { app: gateway-java }
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: gateway
+          image: ghcr.io/hacisimsek/gateway-bench/gateway-java
+          envFrom: [{ configMapRef: { name: gateway-settings } }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: gateway-java }
+            - name: REDIS_PASSWORD
+              valueFrom: { secretKeyRef: { name: redis-auth, key: password } }
+            - { name: REDIS_URL, value: "redis://:$(REDIS_PASSWORD)@redis:6379" }
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: admin, containerPort: 9090 }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: admin }, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /actuator/health/liveness, port: admin }, periodSeconds: 10, failureThreshold: 3 }
+          startupProbe: { httpGet: { path: /actuator/health/liveness, port: admin }, periodSeconds: 1, failureThreshold: 60 }
+          lifecycle:
+            # Keep serving while the endpoint removal reaches every node, then SIGTERM drains.
+            preStop: { sleep: { seconds: 5 } }
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: jwt, mountPath: /etc/gateway/jwt, readOnly: true }
+            - { name: ratelimit, mountPath: /etc/gateway/ratelimit, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: jwt
+          configMap: { name: jwt-public-key }
+        - name: ratelimit
+          configMap: { name: ratelimit-script }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-java
+  labels: { app: gateway-java }
+spec:
+  selector: { app: gateway-java }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    - { name: admin, port: 9090, targetPort: admin }

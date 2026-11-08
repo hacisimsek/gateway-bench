@@ -1,0 +1,18 @@
+# rust.preprod.localhost / java.preprod.localhost on localhost:8000 (kind port mapping to the Envoy Gateway).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gateway-rust
+spec:
+  parentRefs: [{ name: edge, namespace: envoy-gateway-system }]
+  hostnames: [rust.preprod.localhost]
+  rules: [{ backendRefs: [{ name: gateway-rust, port: 80 }] }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gateway-java
+spec:
+  parentRefs: [{ name: edge, namespace: envoy-gateway-system }]
+  hostnames: [java.preprod.localhost]
+  rules: [{ backendRefs: [{ name: gateway-java, port: 80 }] }]

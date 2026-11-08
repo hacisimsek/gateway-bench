@@ -1,0 +1,25 @@
+# Changes to deploy/ (including promotion PRs) must still render for every environment.
+name: Deploy config
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/**", "ratelimit/**"]
+  pull_request:
+    paths: ["deploy/**", "ratelimit/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: Render overlays
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: kustomize build test, preprod, prod
+        run: |
+          for env in test preprod prod; do
+            kubectl kustomize --load-restrictor LoadRestrictionsNone "deploy/overlays/$env" > /dev/null
+            echo "$env: $(grep -h 'newTag:' deploy/overlays/$env/kustomization.yaml | sort -u | tr -s ' ')"
+          done

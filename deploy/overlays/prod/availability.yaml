@@ -1,0 +1,33 @@
+# Prod only: never fewer than one gateway of each kind during voluntary disruptions,
+# and scale out on CPU (metrics-server runs in kube-system).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gateway-rust }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: gateway-rust } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gateway-java }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: gateway-java } }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: gateway-rust }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gateway-rust }
+  minReplicas: 2
+  maxReplicas: 4
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } } }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: gateway-java }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gateway-java }
+  minReplicas: 2
+  maxReplicas: 4
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } } }]

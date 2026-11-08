@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: gateway-test
+resources:
+  - ../../base
+  - route.yaml
+  - redis-auth.sealed.yaml
+configMapGenerator:
+  - name: jwt-public-key
+    files: [public.pem=jwt-public.pem]
+# CI writes the newest tag here after every green build on main.
+images:
+  - name: ghcr.io/hacisimsek/gateway-bench/upstream
+    newTag: sha-4332495
+  - name: ghcr.io/hacisimsek/gateway-bench/gateway-rust
+    newTag: sha-4332495
+  - name: ghcr.io/hacisimsek/gateway-bench/gateway-java
+    newTag: sha-4332495

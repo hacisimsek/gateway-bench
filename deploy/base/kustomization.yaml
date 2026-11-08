@@ -1,0 +1,21 @@
+# What every environment runs. Overlays add: namespace, image tags, JWT public key,
+# sealed Redis password, HTTP routes, and replica/limit changes.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - upstream.yaml
+  - redis.yaml
+  - gateway-rust.yaml
+  - gateway-java.yaml
+configMapGenerator:
+  # The same Lua file both gateways load. It lives outside deploy/, so kustomize needs
+  # --load-restrictor LoadRestrictionsNone (set for Argo CD in deploy/argocd/install).
+  - name: ratelimit-script
+    files: [token_bucket.lua=../../ratelimit/token_bucket.lua]
+  - name: gateway-settings
+    literals:
+      - RATE_LIMIT_PER_SECOND=10
+      - RATE_LIMIT_BURST=20
+      # No trace collector in the cluster yet: sample nothing.
+      - OTEL_TRACES_SAMPLER=always_off
+      - OTEL_TRACES_SAMPLER_ARG=0

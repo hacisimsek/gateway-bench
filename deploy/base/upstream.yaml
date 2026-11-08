@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upstream
+  labels: { app: upstream }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: upstream }
+  template:
+    metadata:
+      labels: { app: upstream }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: upstream
+          image: ghcr.io/hacisimsek/gateway-bench/upstream
+          env:
+            - { name: SERVICE_NAME, value: users }
+          ports: [{ name: http, containerPort: 9000 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+          resources:
+            requests: { cpu: 50m, memory: 16Mi }
+            limits: { cpu: "1", memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upstream
+spec:
+  selector: { app: upstream }
+  ports: [{ name: http, port: 9000, targetPort: http }]

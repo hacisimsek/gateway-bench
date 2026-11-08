@@ -1,0 +1,27 @@
+# test, preprod and prod from one template. Each follows its overlay on main; what reaches
+# an environment is decided in git (CI for test, a reviewed PR for preprod and prod).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: environments
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements: [{ env: test }, { env: preprod }, { env: prod }]
+  template:
+    metadata:
+      name: "gateway-{{.env}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/hacisimsek/gateway-bench.git
+        targetRevision: main
+        path: "deploy/overlays/{{.env}}"
+      destination: { server: https://kubernetes.default.svc, namespace: "gateway-{{.env}}" }
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        syncOptions: [CreateNamespace=true]
+        retry: { limit: 20, backoff: { duration: 10s, factor: 2, maxDuration: 2m } }

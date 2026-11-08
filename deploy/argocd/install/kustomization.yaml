@@ -1,0 +1,17 @@
+# Argo CD itself, applied once by scripts/cluster.sh. Everything else comes from git through it.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.6.1/manifests/install.yaml
+patches:
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+      data:
+        # deploy/base reads ratelimit/token_bucket.lua from the repo root, outside its own folder.
+        kustomize.buildOptions: --load-restrictor LoadRestrictionsNone
+        # Check git every minute instead of every three.
+        timeout.reconciliation: 60s

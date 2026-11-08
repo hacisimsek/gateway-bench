@@ -3,7 +3,7 @@ RUST_IMAGE := rust:1.98.1-slim-trixie
 JDK_IMAGE  := eclipse-temurin:25-jdk-noble
 RUST_CRATES := upstream gateway-rust
 
-.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit smoke-shutdown cold-start bench-jwt bench-s2
+.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit smoke-shutdown cold-start bench-jwt bench-s2 tools seal-secrets cluster cluster-down promote smoke-cluster
 
 lock: ## Regenerate Cargo.lock files
 	@for c in $(RUST_CRATES); do docker run --rm -v "$(CURDIR)/$$c":/app -w /app $(RUST_IMAGE) cargo generate-lockfile; done
@@ -57,3 +57,24 @@ bench-s2: .keys/public.pem ## Full chain on every request (rust, java), ~16 min
 	RATE_LIMIT_PER_SECOND=1000000 RATE_LIMIT_BURST=1000000 docker compose up -d gateway-rust gateway-java
 	ONLY="rust java" LABEL=$(LABEL) TOKEN=$$(scripts/mint-jwt.sh 7200) bench/run-s1.sh 3; \
 	  rc=$$?; docker compose up -d gateway-rust gateway-java; exit $$rc
+
+# --- Kubernetes (phase 6): kind + Argo CD, environments synced from git -------------------
+tools: ## kind and kubeseal into .bin/ (pinned, checksums verified)
+	scripts/tools.sh
+
+seal-secrets: tools ## Per-env JWT keys and sealed Redis passwords into deploy/overlays (private parts stay in .keys/)
+	scripts/seal-secrets.sh
+
+cluster: tools ## Create the kind cluster, install Argo CD, hand over to git
+	scripts/cluster.sh up
+
+cluster-down: ## Delete the kind cluster (keys in .keys/ survive, so sealed secrets stay valid)
+	scripts/cluster.sh down
+
+promote: ## Open a PR moving an image tag up: make promote FROM=test TO=preprod
+	scripts/promote.sh $(FROM) $(TO)
+
+ENV ?= test
+smoke-cluster: ## Auth parity against a kind environment: make smoke-cluster ENV=prod
+	RUST_URL=http://rust.$(ENV).localhost:8000 JAVA_URL=http://java.$(ENV).localhost:8000 \
+	  JWT_KEY=.keys/$(ENV)/private.pem scripts/smoke-auth.sh

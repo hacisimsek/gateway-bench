@@ -3,6 +3,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Compose by default; for a kind environment, e.g.
+#   RUST_URL=http://rust.test.localhost:8000 JAVA_URL=http://java.test.localhost:8000 JWT_KEY=.keys/test/private.pem
+RUST_URL=${RUST_URL:-http://localhost:8081}
+JAVA_URL=${JAVA_URL:-http://localhost:8082}
 mint() { scripts/mint-jwt.sh "$@"; }
 valid=$(mint 3600)
 in_skew=$(mint -30)            # expired 30 s ago: inside the 60 s clock-skew allowance
@@ -35,8 +39,8 @@ printf '%-32s %6s %6s %6s\n' case expect rust java
 for c in "${cases[@]}"; do
   IFS='|' read -r name expect auth <<< "$c"
   got=()
-  for port in 8081 8082; do
-    got+=("$(curl -s -o /dev/null -w '%{http_code}' ${auth:+-H "Authorization: $auth"} "localhost:$port/users/1")")
+  for url in "$RUST_URL" "$JAVA_URL"; do
+    got+=("$(curl -s -o /dev/null -w '%{http_code}' ${auth:+-H "Authorization: $auth"} "$url/users/1")")
   done
   mark=ok; [[ ${got[0]} == "$expect" && ${got[1]} == "$expect" ]] || { mark=FAIL; fail=1; }
   printf '%-32s %6s %6s %6s  %s\n' "$name" "$expect" "${got[0]}" "${got[1]}" "$mark"

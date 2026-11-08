@@ -1,0 +1,12 @@
+# Not a credential: tells Argo CD that docker.io/envoyproxy is an OCI Helm registry.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-envoyproxy
+  namespace: argocd
+  labels: { argocd.argoproj.io/secret-type: repository }
+stringData:
+  name: envoyproxy
+  type: helm
+  url: docker.io/envoyproxy
+  enableOCI: "true"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Mint an RS256 JWT with openssl, signed by .keys/private.pem (created by `make keys`).
 # Usage: scripts/mint-jwt.sh [ttl_seconds] [issuer] [subject]
+#   JWT_KEY=.keys/test/private.pem ...   # sign for a kind environment instead (make seal-secrets)
 #   negative ttl -> already expired token (for negative tests)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,5 +17,5 @@ b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 
 header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
 payload=$(printf '{"sub":"%s","iss":"%s","iat":%d,"exp":%d}' "$SUB" "$ISS" "$IAT" $((NOW + TTL)) | b64url)
-signature=$(printf '%s.%s' "$header" "$payload" | openssl dgst -sha256 -sign .keys/private.pem -binary | b64url)
+signature=$(printf '%s.%s' "$header" "$payload" | openssl dgst -sha256 -sign "${JWT_KEY:-.keys/private.pem}" -binary | b64url)
 echo "$header.$payload.$signature"

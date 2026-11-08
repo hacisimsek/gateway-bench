@@ -5,7 +5,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # Deploy-only and docs-only changes build nothing (deploy.yml validates deploy/).
+    paths-ignore: ["deploy/**", "docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["deploy/**", "docs/**", "**/*.md"]
 
 permissions:
   contents: read
@@ -139,3 +142,22 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY }}/${{ matrix.service }}@sha256:%s ' *)
       - run: docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ matrix.service }}:main
+
+  deploy-test:
+    name: Deploy to test (commit the new tag)
+    needs: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      # GitOps: CI never talks to the cluster. It writes the tag into git; Argo CD does the rest.
+      - name: Point the test overlay at this commit's images
+        run: |
+          tag="sha-${GITHUB_SHA::7}"
+          sed -i -E "s/(newTag: ).*/\1$tag/" deploy/overlays/test/kustomization.yaml
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy(test): $tag"
+          git pull --rebase && git push
