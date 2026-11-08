@@ -21,9 +21,11 @@ RUN jdeps --ignore-missing-deps --multi-release 25 --recursive --print-module-de
 # AOT cache (Java 25, Project Leyden): a training run records loaded and linked classes,
 # so real startups skip that work. It must be made by the same JRE, at the same paths.
 # The run only starts the Spring context and exits; key and script are throwaway stand-ins.
+# env -i: a clean environment. BuildKit injects OTEL_* variables into RUN steps on CI, and
+# Spring would pick them up and fail on BuildKit's unix-socket endpoint.
 COPY src/test/resources/test-public.pem /build/train/public.pem
 RUN echo 'return {1, 0, 0}' > /build/train/token_bucket.lua \
- && cd /app && JWT_PUBLIC_KEY_FILE=/build/train/public.pem RATE_LIMIT_SCRIPT_FILE=/build/train/token_bucket.lua \
+ && cd /app && env -i JWT_PUBLIC_KEY_FILE=/build/train/public.pem RATE_LIMIT_SCRIPT_FILE=/build/train/token_bucket.lua \
     /opt/jre/bin/java -XX:+UseSerialGC -XX:AOTCacheOutput=/app/app.aot -Dspring.context.exit=onRefresh -jar app.jar
 
 # distroless: glibc and CA certs, no shell or package manager; runs as uid 65532 (nonroot).
