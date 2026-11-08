@@ -52,7 +52,7 @@ pub async fn proxy(State(state): State<Arc<AppState>>, mut req: Request) -> Resp
             Response::from_parts(parts, Body::new(body))
         }
         Err(e) => {
-            tracing::warn!("route {}: upstream error: {e}", route.id);
+            tracing::warn!(trace_id = %crate::telemetry::trace_id(), "route {}: upstream error: {e}", route.id);
             StatusCode::BAD_GATEWAY.into_response()
         }
     }

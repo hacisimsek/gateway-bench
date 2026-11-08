@@ -1,0 +1,15 @@
+# gateway-rust with symbols, frame pointers and perf, for profiling (phase 4 notes).
+# docker build -f bench/profile/Dockerfile.rust-perf -t gateway-rust:profile gateway-rust
+FROM rust:1.98.1-slim-trixie AS build
+ENV CARGO_PROFILE_RELEASE_DEBUG=line-tables-only RUSTFLAGS="-C force-frame-pointers=yes"
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --locked && rm -rf src
+COPY src src
+RUN touch src/main.rs && cargo build --release --locked
+
+FROM debian:trixie-slim
+RUN apt-get update -qq && apt-get install -y -qq linux-perf >/dev/null && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/target/release/gateway-rust /usr/local/bin/gateway-rust
+COPY routes.yaml /etc/gateway/routes.yaml
+ENTRYPOINT ["/usr/local/bin/gateway-rust"]

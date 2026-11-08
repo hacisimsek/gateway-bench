@@ -12,7 +12,7 @@ use opentelemetry_otlp::SpanExporter;
 use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::SdkTracerProvider};
 use tracing::{Instrument, Span, field::Empty, info_span};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{EnvFilter, filter::filter_fn, fmt, prelude::*};
 
 /// Same name, unit and buckets as Micrometer's `http.server.requests` in gateway-java,
 /// so one Grafana query works for both gateways.
@@ -33,7 +33,10 @@ pub fn init() -> (PrometheusHandle, SdkTracerProvider) {
     tracing_subscriber::registry()
         // The exporter's own HTTP client must not log into, and trace, itself.
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,hyper=warn,reqwest=warn,opentelemetry=warn".into()))
-        .with(fmt::layer().json().flatten_event(true).with_current_span(true).with_span_list(false))
+        // Events only: a fmt layer that sees spans JSON-formats every span's fields on every
+        // request, logged or not. That was ~12 % of the gateway's CPU at 20k rps (see phase-4 notes).
+        .with(fmt::layer().json().flatten_event(true).with_current_span(false).with_span_list(false)
+            .with_filter(filter_fn(|meta| meta.is_event())))
         .with(tracing_opentelemetry::layer().with_tracer(traces.tracer("gateway-rust")))
         .init();
     (prometheus, traces)
@@ -55,11 +58,9 @@ pub async fn observe(req: Request, next: Next) -> Response {
     let span = info_span!("request",
         otel.name = %method, otel.kind = "server",
         http.request.method = %method, url.path = req.uri().path(),
-        http.route = Empty, http.response.status_code = Empty, trace_id = Empty);
+        http.route = Empty, http.response.status_code = Empty);
     // Continue the caller's trace if it sent a traceparent header.
     let _ = span.set_parent(global::get_text_map_propagator(|p| p.extract(&HeaderExtractor(req.headers()))));
-    // Puts the trace id into every log line written while handling this request.
-    span.record("trace_id", span.context().span().span_context().trace_id().to_string());
 
     let res = next.run(req).instrument(span.clone()).await;
 
@@ -67,6 +68,12 @@ pub async fn observe(req: Request, next: Next) -> Response {
     metrics::histogram!(REQUESTS, "method" => method.to_string(), "status" => res.status().as_str().to_owned())
         .record(start.elapsed());
     res
+}
+
+/// Current request's trace id, for log lines: `warn!(trace_id = %telemetry::trace_id(), ...)`.
+/// Computed only when something is actually logged.
+pub fn trace_id() -> String {
+    Span::current().context().span().span_context().trace_id().to_string()
 }
 
 /// Called by the proxy: names the route on the span and passes the trace on to the upstream.

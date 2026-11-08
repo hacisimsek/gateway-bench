@@ -47,11 +47,11 @@ impl RateLimiter {
         match tokio::time::timeout(REDIS_TIMEOUT, call.invoke_async::<(i64, i64, i64)>(&mut con)).await {
             Ok(Ok((allowed, left, wait_ms))) => Some((allowed == 1, left, wait_ms)),
             Ok(Err(e)) => {
-                tracing::warn!("rate limit skipped, redis error: {e}");
+                tracing::warn!(trace_id = %crate::telemetry::trace_id(), "rate limit skipped, redis error: {e}");
                 None
             }
             Err(_) => {
-                tracing::warn!("rate limit skipped, redis timeout");
+                tracing::warn!(trace_id = %crate::telemetry::trace_id(), "rate limit skipped, redis timeout");
                 None
             }
         }
