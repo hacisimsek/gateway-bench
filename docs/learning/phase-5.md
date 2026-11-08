@@ -74,3 +74,33 @@ good trade for autoscaling and rolling deploys, and a poor one if image pulls ar
 - **Bake builds the same images as Compose.** CI builds with `docker buildx bake -f compose.yaml`
   so it can use the GitHub Actions layer cache, then runs `docker compose up --no-build` on those
   images.
+
+## The first CI runs: three failures before green
+
+It took four runs (the last one: [42474493560](https://github.com/hacisimsek/gateway-bench/actions/runs/42474493560)).
+Each failure was something that worked on the laptop:
+
+1. **BuildKit injects `OTEL_*` variables into `RUN` steps** on GitHub Actions
+   (`OTEL_EXPORTER_OTLP_ENDPOINT=unix:///dev/otel-grpc.sock`). Spring Boot maps these standard
+   variables, so the Java AOT training run tried to build an OTLP exporter for a unix socket and
+   failed. Fix: run the training with `env -i`, a clean environment.
+2. **Private-repo runners have 2 CPUs.** Docker refuses `cpus: 4` on a 2-CPU host, so the
+   upstream's limit is now `${UPSTREAM_CPUS:-4}` and CI sets 2. CI checks behaviour, not
+   performance; benchmarks stay on the fixed local setup.
+3. **Timing assumptions in a test.** On the slower runner a token refilled between the burst and
+   the follow-up request, so the `Retry-After` check got a 200. The refill allowance now follows
+   measured time, and the header is checked on a response that really is a 429.
+
+**Native arm64 runners (`ubuntu-24.04-arm`) work on this private repo.**
+
+| job (green run) | duration |
+|---|---:|
+| unit tests | 2.6 min |
+| parity tests (build + full stack + 3 smoke tests) | 6.0 min |
+| images, 6 in parallel (slowest: gateway-rust amd64) | 4.6 min |
+| publish 3 multi-arch tags | 0.5 min |
+| **push to published images** | **~11 min** |
+
+Every image is published as `ghcr.io/hacisimsek/gateway-bench/<service>:sha-<commit>` (and `:main`),
+one tag covering `linux/amd64` and `linux/arm64`. The packages are private like the repo, so
+the phase 6 cluster needs a pull secret.
