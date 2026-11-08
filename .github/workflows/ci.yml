@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       OTEL_TRACES_SAMPLER_ARG: "0" # no Jaeger in CI, so sample nothing
+      UPSTREAM_CPUS: "2" # private-repo runners have 2 CPUs; correctness only, no benchmarks here
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4

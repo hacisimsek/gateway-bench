@@ -21,7 +21,7 @@ services:
     environment:
       SERVICE_NAME: users
     ports: ["9000:9000"]
-    cpus: 4
+    cpus: ${UPSTREAM_CPUS:-4} # CI runners only have 2 CPUs
 
   gateway-rust:
     build: ./gateway-rust
