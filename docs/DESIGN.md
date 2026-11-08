@@ -9,7 +9,7 @@ The goal is learning first, numbers second: every phase teaches one concept in b
 | Feature | Rust | Java |
 |---|---|---|
 | Path-based routing (`/users/**` → users upstream) | axum router + hyper client | Gateway Server MVC routes |
-| JWT validation (RS256, JWKS from a static file/ConfigMap) | tower layer | gateway filter |
+| JWT validation (RS256 public key from a file/Secret; `exp` with 60 s skew, `iss`) | axum middleware (`jsonwebtoken` + aws-lc-rs) | Spring Security resource server (`NimbusJwtDecoder`) |
 | Distributed rate limiting (token bucket in Redis, **same Lua script**) | tower layer + `redis` crate | `RedisRateLimiter`-compatible filter |
 | Health probes (`/healthz`, `/readyz`) | axum handlers | Spring Boot Actuator |
 | Metrics (Prometheus) | `metrics` + exporter | Micrometer |
@@ -111,3 +111,4 @@ Each phase ends with something that runs and one short write-up of what was lear
 - Upstream mock language (default: Rust, so it is never the bottleneck).
 - Ingress controller for kind (default: ingress-nginx).
 - When to move from plain Secrets to Sealed Secrets (default: phase 6).
+- JWKS with key rotation instead of a single PEM public key (phase 6, together with secrets).

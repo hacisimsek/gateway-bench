@@ -13,23 +13,31 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design.
 |---|---|---|
 | 0 | Bootstrap: services, Docker Compose, Makefile | ✅ |
 | 1 | Routing proxy + first baseline benchmark (S1) | ✅ |
-| 2–7 | JWT, rate limiting, observability, CI, GitOps, full benchmarks | |
+| 2 | JWT validation (RS256) + benchmark with auth | ✅ |
+| 3–7 | Rate limiting, observability, CI, GitOps, full benchmarks | |
 
 ## Run locally
 
 Only Docker is required; Rust and Java builds run inside containers.
 
 ```bash
-make up      # build and start upstream, gateway-rust, gateway-java
-make smoke   # health check all three
-make test    # unit tests for all services
-make bench-s1  # S1 baseline: direct vs gateway-rust vs gateway-java (~25 min)
+make up          # generate dev JWT keys (first run), build and start everything
+make smoke       # health check all three
+make smoke-auth  # same JWT cases against both gateways; they must agree
+make test        # unit tests for all services
+make bench-jwt   # both gateways with a JWT on every request (~16 min)
 make down
 ```
 
 Routes come from config, not code: [gateway-rust/routes.yaml](gateway-rust/routes.yaml) and
 [gateway-java/.../application.yml](gateway-java/src/main/resources/application.yml).
-`curl localhost:8081/users/42` and `curl localhost:8082/users/42` both reach the upstream.
+Proxied routes need a JWT signed by the dev key in `.keys/` (generated locally, never committed):
+
+```bash
+TOKEN=$(scripts/mint-jwt.sh)
+curl -H "Authorization: Bearer $TOKEN" localhost:8081/users/42   # rust
+curl -H "Authorization: Bearer $TOKEN" localhost:8082/users/42   # java
+```
 
 | Service | Port |
 |---|---|

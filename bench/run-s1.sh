@@ -2,6 +2,7 @@
 # S1 baseline: direct-to-upstream, gateway-rust, gateway-java at the same request rates.
 # Usage: bench/run-s1.sh [runs]   (stack must be up: make up)
 #   ONLY="java" LABEL=java-g1 bench/run-s1.sh 3   # one target, results folder suffixed with the label
+#   TOKEN=$(scripts/mint-jwt.sh 7200) ...          # send a valid JWT with every request
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,10 +20,11 @@ mkdir -p "$OUT"
   echo "host: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m), docker cpus=$(docker info -f '{{.NCPU}}') mem=$(docker info -f '{{.MemTotal}}')"
   echo "commit: $(git rev-parse --short HEAD)$(git diff --quiet || echo '-dirty')"
   echo "limits: gateways 2 cpu/512m, upstream 4 cpu, k6 4 cpu"
-  echo "java options: $(docker inspect gateway-bench-gateway-java-1 -f '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^JAVA_TOOL_OPTIONS=//p')"
+  echo "jwt: $([[ -n ${TOKEN:-} ]] && echo 'yes (RS256, verified on every request)' || echo no)"
+  echo "java options:$(docker inspect gateway-bench-gateway-java-1 -f '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^JAVA_TOOL_OPTIONS=//p')"
 } > "$OUT/env.txt"
 
-k6() { docker compose --profile bench run --rm -q k6 run -q "$@" /bench/k6/s1-passthrough.js >/dev/null; }
+k6() { docker compose --profile bench run --rm -q k6 run -q ${TOKEN:+-e TOKEN=$TOKEN} "$@" /bench/k6/s1-passthrough.js >/dev/null; }
 
 for run in $(seq 1 "$RUNS"); do
   for t in "${TARGETS[@]}"; do

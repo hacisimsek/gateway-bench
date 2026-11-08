@@ -10,6 +10,7 @@ services:
   gateway-rust:
     build: ./gateway-rust
     ports: ["8081:8080"]
+    volumes: ["./.keys/public.pem:/etc/gateway/jwt/public.pem:ro"]
     cpus: 2
     mem_limit: 512m
     depends_on: [upstream]
@@ -17,6 +18,7 @@ services:
   gateway-java:
     build: ./gateway-java
     ports: ["8082:8080"]
+    volumes: ["./.keys/public.pem:/etc/gateway/jwt/public.pem:ro"]
     environment:
       # JVM flags for experiments, e.g. JAVA_TOOL_OPTIONS="-XX:+UseG1GC" docker compose up -d
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}

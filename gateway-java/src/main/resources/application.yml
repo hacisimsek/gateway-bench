@@ -16,6 +16,13 @@ spring:
               predicates:
                 - Path=/users/**
 
+gateway:
+  jwt:
+    # RS256 public key, mounted from a Secret/ConfigMap in Kubernetes.
+    public-key-location: file:${JWT_PUBLIC_KEY_FILE:/etc/gateway/jwt/public.pem}
+    # Must equal the token's "iss" claim.
+    issuer: ${JWT_ISSUER:gateway-bench}
+
 server:
   port: 8080
   shutdown: graceful

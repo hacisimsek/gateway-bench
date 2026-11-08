@@ -19,8 +19,11 @@ export const options = {
   },
 };
 
+// With TOKEN set every request carries the same valid JWT; both gateways verify it every time.
+const params = __ENV.TOKEN ? { headers: { Authorization: `Bearer ${__ENV.TOKEN}` } } : {};
+
 export default function () {
-  http.get(`${__ENV.TARGET}/users/42`);
+  http.get(`${__ENV.TARGET}/users/42`, params);
 }
 
 export function handleSummary(data) {
