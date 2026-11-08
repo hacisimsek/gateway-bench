@@ -11,8 +11,8 @@ configMapGenerator:
 # `make promote FROM=test TO=preprod` opens a PR that copies the tag from test.
 images:
   - name: ghcr.io/hacisimsek/gateway-bench/upstream
-    newTag: sha-4332495
+    newTag: sha-69b9714
   - name: ghcr.io/hacisimsek/gateway-bench/gateway-rust
-    newTag: sha-4332495
+    newTag: sha-69b9714
   - name: ghcr.io/hacisimsek/gateway-bench/gateway-java
-    newTag: sha-4332495
+    newTag: sha-69b9714
