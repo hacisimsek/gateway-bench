@@ -10,6 +10,17 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
+use serde::Deserialize;
+
+/// The verified token's `sub` claim, handed to the rate limiter via request extensions.
+#[derive(Clone)]
+pub struct Subject(pub String);
+
+#[derive(Deserialize)]
+struct Claims {
+    #[serde(default)]
+    sub: String,
+}
 
 pub struct JwtVerifier {
     key: DecodingKey,
@@ -26,9 +37,9 @@ impl JwtVerifier {
         Self { key, validation }
     }
 
-    fn verify(&self, authorization: Option<&HeaderValue>) -> bool {
-        bearer_token(authorization)
-            .is_some_and(|t| decode::<serde_json::Value>(t, &self.key, &self.validation).is_ok())
+    fn verify(&self, authorization: Option<&HeaderValue>) -> Option<Subject> {
+        let token = bearer_token(authorization)?;
+        decode::<Claims>(token, &self.key, &self.validation).ok().map(|t| Subject(t.claims.sub))
     }
 }
 
@@ -36,11 +47,13 @@ fn bearer_token(authorization: Option<&HeaderValue>) -> Option<&str> {
     authorization?.to_str().ok()?.strip_prefix("Bearer ")
 }
 
-pub async fn require_jwt(State(verifier): State<Arc<JwtVerifier>>, req: Request, next: Next) -> Response {
-    if verifier.verify(req.headers().get(header::AUTHORIZATION)) {
-        next.run(req).await
-    } else {
-        (StatusCode::UNAUTHORIZED, [(header::WWW_AUTHENTICATE, "Bearer")]).into_response()
+pub async fn require_jwt(State(verifier): State<Arc<JwtVerifier>>, mut req: Request, next: Next) -> Response {
+    match verifier.verify(req.headers().get(header::AUTHORIZATION)) {
+        Some(subject) => {
+            req.extensions_mut().insert(subject);
+            next.run(req).await
+        }
+        None => (StatusCode::UNAUTHORIZED, [(header::WWW_AUTHENTICATE, "Bearer")]).into_response(),
     }
 }
 

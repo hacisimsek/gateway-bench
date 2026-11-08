@@ -10,7 +10,7 @@ The goal is learning first, numbers second: every phase teaches one concept in b
 |---|---|---|
 | Path-based routing (`/users/**` → users upstream) | axum router + hyper client | Gateway Server MVC routes |
 | JWT validation (RS256 public key from a file/Secret; `exp` with 60 s skew, `iss`) | axum middleware (`jsonwebtoken` + aws-lc-rs) | Spring Security resource server (`NimbusJwtDecoder`) |
-| Distributed rate limiting (token bucket in Redis, **same Lua script**) | tower layer + `redis` crate | `RedisRateLimiter`-compatible filter |
+| Distributed rate limiting (token bucket per JWT `sub` in Redis, **same Lua script**, one global limit, fail open after 100 ms) | axum middleware + `redis` crate (`ConnectionManager`) | Servlet filter + Spring Data Redis (Lettuce) |
 | Health probes (`/healthz`, `/readyz`) | axum handlers | Spring Boot Actuator |
 | Metrics (Prometheus) | `metrics` + exporter | Micrometer |
 | Tracing (OpenTelemetry, OTLP) | `tracing` + `opentelemetry` | Micrometer Tracing + OTLP |
@@ -112,3 +112,4 @@ Each phase ends with something that runs and one short write-up of what was lear
 - Ingress controller for kind (default: ingress-nginx).
 - When to move from plain Secrets to Sealed Secrets (default: phase 6).
 - JWKS with key rotation instead of a single PEM public key (phase 6, together with secrets).
+- Per-route rate limits, and a circuit breaker so a Redis outage costs one timeout, not 100 ms on every request.

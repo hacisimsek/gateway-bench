@@ -13,7 +13,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 
 // Valid, expired and wrong-issuer tokens are covered end to end for both gateways by `make smoke-auth`.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = "gateway.jwt.public-key-location=classpath:test-public.pem")
+		properties = { "gateway.jwt.public-key-location=classpath:test-public.pem",
+				"gateway.rate-limit.script-location=file:../ratelimit/token_bucket.lua" })
 class GatewayJavaApplicationTests {
 
 	@LocalServerPort

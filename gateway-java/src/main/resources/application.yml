@@ -5,6 +5,12 @@ spring:
     virtual:
       # Every request runs on its own virtual thread instead of a pooled platform thread.
       enabled: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://redis:6379}
+      # Past this, Redis counts as down and the request goes through unlimited (fail open).
+      timeout: 100ms
+      connect-timeout: 100ms
   cloud:
     gateway:
       server:
@@ -22,6 +28,12 @@ gateway:
     public-key-location: file:${JWT_PUBLIC_KEY_FILE:/etc/gateway/jwt/public.pem}
     # Must equal the token's "iss" claim.
     issuer: ${JWT_ISSUER:gateway-bench}
+  rate-limit:
+    # One token bucket per JWT subject, shared with gateway-rust through Redis.
+    per-second: ${RATE_LIMIT_PER_SECOND:10}
+    burst: ${RATE_LIMIT_BURST:20}
+    # Same Lua file as gateway-rust (ratelimit/token_bucket.lua in the repo).
+    script-location: file:${RATE_LIMIT_SCRIPT_FILE:/etc/gateway/ratelimit/token_bucket.lua}
 
 server:
   port: 8080

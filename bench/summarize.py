@@ -27,12 +27,13 @@ def row(path):
     m = json.loads(path.read_text())["metrics"]
     d = m["http_req_duration"]["values"]
     cpu, mem = parse_stats(path.with_suffix(".stats"))
+    redis_cpu, _ = parse_stats(path.with_suffix(".redis"))  # 0 when Redis was not running
     return {
         "achieved_rps": m["http_reqs"]["values"]["rate"],
         "p50_ms": d["p(50)"], "p95_ms": d["p(95)"], "p99_ms": d["p(99)"],
         "error_pct": m["http_req_failed"]["values"]["rate"] * 100,
         "dropped": m.get("dropped_iterations", {}).get("values", {}).get("count", 0),
-        "cpu_pct": cpu, "mem_mib": mem,
+        "cpu_pct": cpu, "mem_mib": mem, "redis_cpu_pct": redis_cpu,
     }
 
 
@@ -54,11 +55,11 @@ def main(folder):
         w.writeheader()
         w.writerows(table)
 
-    lines = ["| target | rate | achieved rps | p50 ms | p95 ms | p99 ms | errors % | dropped | cpu % | mem MiB |",
-             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = ["| target | rate | achieved rps | p50 ms | p95 ms | p99 ms | errors % | dropped | cpu % | mem MiB | redis cpu % |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for r in table:
         lines.append(f"| {r['target']} | {r['rate']} | {r['achieved_rps']:.0f} | {r['p50_ms']:.2f} | {r['p95_ms']:.2f} "
-                     f"| {r['p99_ms']:.2f} | {r['error_pct']:.2f} | {r['dropped']:.0f} | {r['cpu_pct']:.0f} | {r['mem_mib']:.0f} |")
+                     f"| {r['p99_ms']:.2f} | {r['error_pct']:.2f} | {r['dropped']:.0f} | {r['cpu_pct']:.0f} | {r['mem_mib']:.0f} | {r['redis_cpu_pct']:.0f} |")
     env = (folder / "env.txt").read_text() if (folder / "env.txt").exists() else ""
     (folder / "results.md").write_text(f"# S1 passthrough — median of runs\n\n```\n{env}```\n\n" + "\n".join(lines) + "\n")
     print("\n".join(lines))

@@ -21,8 +21,13 @@ mkdir -p "$OUT"
   echo "commit: $(git rev-parse --short HEAD)$(git diff --quiet || echo '-dirty')"
   echo "limits: gateways 2 cpu/512m, upstream 4 cpu, k6 4 cpu"
   echo "jwt: $([[ -n ${TOKEN:-} ]] && echo 'yes (RS256, verified on every request)' || echo no)"
+  echo "rate limit:$(docker inspect gateway-bench-gateway-rust-1 -f '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^RATE_LIMIT_/ /p' | tr '\n' ' ')"
   echo "java options:$(docker inspect gateway-bench-gateway-java-1 -f '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^JAVA_TOOL_OPTIONS=//p')"
 } > "$OUT/env.txt"
+
+# Redis CPU is sampled too when it runs (phase 3+): the rate limiter's cost lands there.
+REDIS=gateway-bench-redis-1
+[[ $(docker inspect -f '{{.State.Running}}' $REDIS 2>/dev/null) == true ]] || REDIS=
 
 k6() { docker compose --profile bench run --rm -q k6 run -q ${TOKEN:+-e TOKEN=$TOKEN} "$@" /bench/k6/s1-passthrough.js >/dev/null; }
 
@@ -35,9 +40,13 @@ for run in $(seq 1 "$RUNS"); do
       echo "run $run · $name · $rate rps"
       stats="$OUT/$name-$rate-run$run.stats"
       ( while :; do docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' "$container" >> "$stats"; done ) &
-      sampler=$!
+      samplers=($!)
+      if [[ -n $REDIS ]]; then
+        ( while :; do docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' "$REDIS" >> "${stats%.stats}.redis"; done ) &
+        samplers+=($!)
+      fi
       k6 -e TARGET="$url" -e RATE="$rate" -e OUT="/bench/results/s1/$(basename "$OUT")/$name-$rate-run$run.json"
-      kill "$sampler"; wait "$sampler" 2>/dev/null || true
+      kill "${samplers[@]}"; wait "${samplers[@]}" 2>/dev/null || true
     done
   done
 done

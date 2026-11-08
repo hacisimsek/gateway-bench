@@ -1,5 +1,17 @@
 # Local stack. Both gateways get the same CPU and memory limits so benchmarks are comparable.
+
+# Shared by both gateways: same Redis, same Lua script, same limits.
+x-rate-limit-env: &rate-limit-env
+  REDIS_URL: redis://redis:6379
+  # Low by default so 429s are easy to see; benchmarks raise them (make bench-rl).
+  RATE_LIMIT_PER_SECOND: ${RATE_LIMIT_PER_SECOND:-10}
+  RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-20}
+
 services:
+  redis:
+    image: redis:8.8.4-alpine
+    cpus: 1 # Redis runs commands on a single thread
+
   upstream:
     build: ./upstream
     environment:
@@ -10,21 +22,25 @@ services:
   gateway-rust:
     build: ./gateway-rust
     ports: ["8081:8080"]
-    volumes: ["./.keys/public.pem:/etc/gateway/jwt/public.pem:ro"]
+    volumes: &gateway-volumes
+      - ./.keys/public.pem:/etc/gateway/jwt/public.pem:ro
+      - ./ratelimit/token_bucket.lua:/etc/gateway/ratelimit/token_bucket.lua:ro
+    environment: *rate-limit-env
     cpus: 2
     mem_limit: 512m
-    depends_on: [upstream]
+    depends_on: [upstream, redis]
 
   gateway-java:
     build: ./gateway-java
     ports: ["8082:8080"]
-    volumes: ["./.keys/public.pem:/etc/gateway/jwt/public.pem:ro"]
+    volumes: *gateway-volumes
     environment:
+      <<: *rate-limit-env
       # JVM flags for experiments, e.g. JAVA_TOOL_OPTIONS="-XX:+UseG1GC" docker compose up -d
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
     cpus: 2
     mem_limit: 512m
-    depends_on: [upstream]
+    depends_on: [upstream, redis]
 
   # Load generator, only started by bench scripts (docker compose --profile bench run k6 ...).
   k6:
