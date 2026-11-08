@@ -3,7 +3,7 @@ RUST_IMAGE := rust:1.98.1-slim-trixie
 JDK_IMAGE  := eclipse-temurin:25-jdk-noble
 RUST_CRATES := upstream gateway-rust
 
-.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit bench-jwt bench-rl
+.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit smoke-shutdown bench-jwt bench-s2
 
 lock: ## Regenerate Cargo.lock files
 	@for c in $(RUST_CRATES); do docker run --rm -v "$(CURDIR)/$$c":/app -w /app $(RUST_IMAGE) cargo generate-lockfile; done
@@ -30,8 +30,8 @@ down:
 
 smoke: ## Check every service answers its health endpoint
 	curl -fsS localhost:9000/healthz && echo " upstream"
-	curl -fsS localhost:8081/healthz && echo " gateway-rust"
-	curl -fsS localhost:8082/actuator/health/readiness && echo " gateway-java"
+	curl -fsS localhost:9091/healthz && echo " gateway-rust"
+	curl -fsS localhost:9092/actuator/health/readiness && echo " gateway-java"
 
 smoke-auth: .keys/public.pem ## Same JWT cases against both gateways
 	scripts/smoke-auth.sh
@@ -39,13 +39,18 @@ smoke-auth: .keys/public.pem ## Same JWT cases against both gateways
 smoke-ratelimit: .keys/public.pem ## 429s, shared bucket and fail open, both gateways (stops Redis briefly)
 	scripts/smoke-ratelimit.sh
 
+smoke-shutdown: .keys/public.pem ## SIGTERM during a slow request: it must still finish (restarts both gateways)
+	scripts/smoke-shutdown.sh
+
 # Gateways require a JWT since phase 2, so every gateway benchmark sends one.
 # Phase 1's no-auth numbers stay in bench/results/s1/20261107-164406.
 bench-jwt: .keys/public.pem ## Passthrough with a valid JWT on every request (rust, java), ~16 min
 	ONLY="rust java" LABEL=jwt TOKEN=$$(scripts/mint-jwt.sh 7200) bench/run-s1.sh 3
 
-# Limits raised so nothing gets a 429: this measures the Redis round trip on every request.
-bench-rl: .keys/public.pem ## JWT + rate limit (Redis) on every request (rust, java), ~16 min
+# S2, full chain: JWT + rate limit (raised so nothing gets a 429) + metrics + 10% tracing.
+# Phase 3's run without telemetry is bench/results/s1/20261108-100810-jwt-rl.
+LABEL ?= s2
+bench-s2: .keys/public.pem ## Full chain on every request (rust, java), ~16 min
 	RATE_LIMIT_PER_SECOND=1000000 RATE_LIMIT_BURST=1000000 docker compose up -d gateway-rust gateway-java
-	ONLY="rust java" LABEL=jwt-rl TOKEN=$$(scripts/mint-jwt.sh 7200) bench/run-s1.sh 3; \
+	ONLY="rust java" LABEL=$(LABEL) TOKEN=$$(scripts/mint-jwt.sh 7200) bench/run-s1.sh 3; \
 	  rc=$$?; docker compose up -d gateway-rust gateway-java; exit $$rc

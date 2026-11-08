@@ -1,0 +1,9 @@
+# Scrapes both gateways' admin ports. In Kubernetes a ServiceMonitor replaces this file.
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: gateway-rust
+    static_configs: [{ targets: ["gateway-rust:9090"] }]
+  - job_name: gateway-java
+    metrics_path: /actuator/prometheus
+    static_configs: [{ targets: ["gateway-java:9090"] }]

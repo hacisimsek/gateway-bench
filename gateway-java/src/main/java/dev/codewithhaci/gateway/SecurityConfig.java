@@ -36,7 +36,7 @@ class SecurityConfig {
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/actuator/health/**").permitAll()
+						.requestMatchers("/actuator/health/**", "/actuator/prometheus").permitAll()
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
 				// A gateway is stateless: no HTTP session, no CSRF token (no browser cookies involved).

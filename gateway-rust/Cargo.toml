@@ -10,6 +10,15 @@ jsonwebtoken = { version = "11.1", default-features = false, features = ["aws_lc
 hyper-util = { version = "0.1.21", features = ["client-legacy", "http1", "tokio"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml_ng = "0.10"
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-opentelemetry = "0.34"
+opentelemetry = "0.33"
+opentelemetry_sdk = "0.33"
+opentelemetry-otlp = { version = "0.33", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client"] }
+opentelemetry-http = "0.33"
 tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
 
 [profile.release]

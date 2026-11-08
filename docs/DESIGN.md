@@ -11,12 +11,12 @@ The goal is learning first, numbers second: every phase teaches one concept in b
 | Path-based routing (`/users/**` → users upstream) | axum router + hyper client | Gateway Server MVC routes |
 | JWT validation (RS256 public key from a file/Secret; `exp` with 60 s skew, `iss`) | axum middleware (`jsonwebtoken` + aws-lc-rs) | Spring Security resource server (`NimbusJwtDecoder`) |
 | Distributed rate limiting (token bucket per JWT `sub` in Redis, **same Lua script**, one global limit, fail open after 100 ms) | axum middleware + `redis` crate (`ConnectionManager`) | Servlet filter + Spring Data Redis (Lettuce) |
-| Health probes (`/healthz`, `/readyz`) | axum handlers | Spring Boot Actuator |
-| Metrics (Prometheus) | `metrics` + exporter | Micrometer |
-| Tracing (OpenTelemetry, OTLP) | `tracing` + `opentelemetry` | Micrometer Tracing + OTLP |
-| Structured JSON logs | `tracing-subscriber` | Logback JSON |
-| Config from env / ConfigMap | `figment` or env | `application.yml` + env |
-| Graceful shutdown | tokio signal + hyper drain | `server.shutdown=graceful` |
+| Health probes and metrics on a separate admin port (9090), never behind the Ingress | axum `/healthz` | Actuator health groups (liveness, readiness) |
+| Metrics (Prometheus, same histogram name and buckets: `http_server_requests_seconds`) | `metrics` + `metrics-exporter-prometheus` | Micrometer Prometheus registry |
+| Tracing (OpenTelemetry, OTLP/HTTP, parent-based 10% sampling, W3C `traceparent` to upstream) | `tracing` + `tracing-opentelemetry` | Micrometer Tracing bridged to OpenTelemetry |
+| Structured JSON logs with trace id, no per-request access log | `tracing-subscriber` JSON | Spring Boot structured logging (ECS) |
+| Config from env / ConfigMap (standard `OTEL_*` variables for telemetry) | env | `application.yml` + env |
+| Graceful shutdown | tokio signal + axum drain | `server.shutdown=graceful` |
 
 The concurrency model is the core comparison:
 **tokio async tasks** (Rust) vs **virtual threads** (Java 25). Both let you write

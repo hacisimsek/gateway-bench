@@ -41,6 +41,7 @@ pub async fn proxy(State(state): State<Arc<AppState>>, mut req: Request) -> Resp
     };
     *req.uri_mut() = uri;
     strip_hop_by_hop(req.headers_mut());
+    crate::telemetry::propagate(&route.id, req.headers_mut());
     // Let the client set Host from the upstream URI instead of forwarding the gateway's.
     req.headers_mut().remove(header::HOST);
 
@@ -51,7 +52,7 @@ pub async fn proxy(State(state): State<Arc<AppState>>, mut req: Request) -> Resp
             Response::from_parts(parts, Body::new(body))
         }
         Err(e) => {
-            eprintln!("route {}: upstream error: {e}", route.id);
+            tracing::warn!("route {}: upstream error: {e}", route.id);
             StatusCode::BAD_GATEWAY.into_response()
         }
     }

@@ -1,11 +1,15 @@
 # Local stack. Both gateways get the same CPU and memory limits so benchmarks are comparable.
 
-# Shared by both gateways: same Redis, same Lua script, same limits.
-x-rate-limit-env: &rate-limit-env
+# Shared by both gateways: same Redis, same Lua script, same limits, same telemetry settings.
+x-gateway-env: &gateway-env
   REDIS_URL: redis://redis:6379
-  # Low by default so 429s are easy to see; benchmarks raise them (make bench-rl).
+  # Low by default so 429s are easy to see; benchmarks raise them (make bench-s2).
   RATE_LIMIT_PER_SECOND: ${RATE_LIMIT_PER_SECOND:-10}
   RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-20}
+  # Standard OpenTelemetry variables, read by the Rust SDK and by Spring Boot alike.
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  OTEL_TRACES_SAMPLER: parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
 
 services:
   redis:
@@ -21,26 +25,55 @@ services:
 
   gateway-rust:
     build: ./gateway-rust
-    ports: ["8081:8080"]
+    ports: ["8081:8080", "9091:9090"] # traffic, admin (healthz + metrics)
     volumes: &gateway-volumes
       - ./.keys/public.pem:/etc/gateway/jwt/public.pem:ro
       - ./ratelimit/token_bucket.lua:/etc/gateway/ratelimit/token_bucket.lua:ro
-    environment: *rate-limit-env
+    environment:
+      <<: *gateway-env
+      OTEL_SERVICE_NAME: gateway-rust
     cpus: 2
     mem_limit: 512m
     depends_on: [upstream, redis]
 
   gateway-java:
     build: ./gateway-java
-    ports: ["8082:8080"]
+    ports: ["8082:8080", "9092:9090"] # traffic, management (health + prometheus)
     volumes: *gateway-volumes
     environment:
-      <<: *rate-limit-env
+      <<: *gateway-env
       # JVM flags for experiments, e.g. JAVA_TOOL_OPTIONS="-XX:+UseG1GC" docker compose up -d
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
     cpus: 2
     mem_limit: 512m
     depends_on: [upstream, redis]
+
+  # Observability: Prometheus scrapes metrics, Jaeger receives traces over OTLP, Grafana shows both.
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+    cpus: 1
+
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0 # all-in-one, in-memory storage
+    ports: ["16686:16686"] # UI; OTLP on 4317/4318 stays internal
+    cpus: 1
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    environment:
+      # Local only: open without login.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/gateways.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    cpus: 1
+    depends_on: [prometheus, jaeger]
 
   # Load generator, only started by bench scripts (docker compose --profile bench run k6 ...).
   k6:

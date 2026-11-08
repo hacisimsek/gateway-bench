@@ -46,6 +46,8 @@ async fn echo(State(config): State<Arc<Config>>, req: Request) -> Json<Value> {
         "method": req.method().as_str(),
         "path": req.uri().path(),
         "delay_ms": delay,
+        // Shows whether the gateway passed the trace on (W3C trace context).
+        "traceparent": req.headers().get("traceparent").and_then(|v| v.to_str().ok()),
     }))
 }
 

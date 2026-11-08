@@ -39,11 +39,38 @@ server:
   port: 8080
   shutdown: graceful
 
+logging:
+  structured:
+    format:
+      # One JSON object per line (Elastic Common Schema), with trace and span ids.
+      console: ecs
+
 management:
+  server:
+    # Probes and metrics on their own port, never exposed through the Ingress.
+    port: 9090
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  metrics:
+    distribution:
+      # Same buckets as gateway-rust's http_server_requests_seconds, for one shared Grafana query.
+      slo:
+        http.server.requests: 1ms,2500us,5ms,10ms,25ms,50ms,100ms,250ms,500ms,1s,2500ms,5s,10s
+  tracing:
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLER_ARG:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+  otlp:
+    metrics:
+      export:
+        # Metrics are scraped by Prometheus, not pushed over OTLP.
+        enabled: false
   endpoint:
     health:
       # /actuator/health/liveness and /actuator/health/readiness for Kubernetes probes
