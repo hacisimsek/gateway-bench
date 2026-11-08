@@ -8,7 +8,10 @@ valid=$(mint 3600)
 in_skew=$(mint -30)            # expired 30 s ago: inside the 60 s clock-skew allowance
 expired=$(mint -3600)
 wrong_issuer=$(mint 3600 someone-else)
-tampered="${valid%?}x"          # last signature character changed
+# Change a character in the middle of the signature. Not the last one: in base64url its low
+# bits are padding, so some edits decode to the same bytes (Java accepts those, Rust rejects them).
+sig=${valid##*.}; c=${sig:10:1}
+tampered="${valid%.*}.${sig:0:10}$([[ $c == A ]] && echo B || echo A)${sig:11}"
 other_key=$( (openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null > /tmp/other.pem) &&
   h=$(printf '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=') &&
   p=$(printf '{"sub":"x","iss":"gateway-bench","exp":%d}' $(( $(date +%s) + 3600 )) | openssl base64 -A | tr '+/' '-_' | tr -d '=') &&

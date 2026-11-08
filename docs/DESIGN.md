@@ -54,6 +54,10 @@ flowchart LR
 ```
 
 - **CI** builds images inside Docker (multi-stage). No local Rust or Java 25 install is needed.
+  Every push runs unit tests and the parity tests on the full Compose stack; `main` builds each
+  image natively on amd64 and arm64 runners and publishes one multi-arch tag per commit (`sha-<short>`).
+- **Images**: distroless `cc-debian13` base for all three. Java ships a jlink-trimmed JRE and a
+  Java 25 AOT cache trained at build time.
 - **Config and secrets**: ConfigMaps per overlay. Secrets (JWT keys, Redis password) start as
   plain Kubernetes Secrets for local learning; a later phase switches to Sealed Secrets.
 - **Environments**: three namespaces in one local kind cluster stand in for three clusters.

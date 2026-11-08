@@ -6,9 +6,9 @@ RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --lo
 COPY src src
 RUN touch src/main.rs && cargo build --release --locked
 
-FROM debian:trixie-slim
+# distroless: glibc and CA certs, no shell or package manager; runs as uid 65532 (nonroot).
+FROM gcr.io/distroless/cc-debian13:nonroot
 COPY --from=build /app/target/release/gateway-rust /usr/local/bin/gateway-rust
 COPY routes.yaml /etc/gateway/routes.yaml
-USER 65534
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/gateway-rust"]

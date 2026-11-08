@@ -6,8 +6,8 @@ RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --lo
 COPY src src
 RUN touch src/main.rs && cargo build --release --locked
 
-FROM debian:trixie-slim
+# distroless: glibc and CA certs, no shell or package manager; runs as uid 65532 (nonroot).
+FROM gcr.io/distroless/cc-debian13:nonroot
 COPY --from=build /app/target/release/upstream /usr/local/bin/upstream
-USER 65534
 EXPOSE 9000
 ENTRYPOINT ["/usr/local/bin/upstream"]

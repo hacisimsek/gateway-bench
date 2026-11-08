@@ -16,7 +16,8 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design.
 | 2 | JWT validation (RS256) + benchmark with auth | ✅ |
 | 3 | Redis rate limiting (shared Lua token bucket) + benchmark | ✅ |
 | 4 | Metrics, traces, JSON logs, graceful shutdown + full-chain benchmark (S2) | ✅ |
-| 5–7 | CI, GitOps, full benchmarks | |
+| 5 | CI (GitHub Actions → GHCR, amd64 + arm64), distroless images, Java AOT cache | ✅ |
+| 6–7 | GitOps, full benchmarks | |
 
 ## Run locally
 
@@ -28,11 +29,16 @@ make smoke       # health check both gateways (admin ports)
 make smoke-auth  # same JWT cases against both gateways; they must agree
 make smoke-ratelimit  # 429s, a bucket shared by both gateways, fail open when Redis stops
 make smoke-shutdown   # SIGTERM during a slow request: it still finishes with 200
+make cold-start  # image size and time to ready, both gateways
 make test        # unit tests for all services
 make bench-jwt   # both gateways with a JWT on every request (~16 min)
 make bench-s2    # full chain: JWT + rate limit + metrics + tracing (~16 min)
 make down
 ```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs `make test` and the three parity tests
+on every push and PR. On `main` it publishes `ghcr.io/hacisimsek/gateway-bench/<service>:sha-<commit>`
+for amd64 and arm64.
 
 Routes come from config, not code: [gateway-rust/routes.yaml](gateway-rust/routes.yaml) and
 [gateway-java/.../application.yml](gateway-java/src/main/resources/application.yml).

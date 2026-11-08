@@ -3,7 +3,7 @@ RUST_IMAGE := rust:1.98.1-slim-trixie
 JDK_IMAGE  := eclipse-temurin:25-jdk-noble
 RUST_CRATES := upstream gateway-rust
 
-.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit smoke-shutdown bench-jwt bench-s2
+.PHONY: lock test build keys up down smoke smoke-auth smoke-ratelimit smoke-shutdown cold-start bench-jwt bench-s2
 
 lock: ## Regenerate Cargo.lock files
 	@for c in $(RUST_CRATES); do docker run --rm -v "$(CURDIR)/$$c":/app -w /app $(RUST_IMAGE) cargo generate-lockfile; done
@@ -41,6 +41,9 @@ smoke-ratelimit: .keys/public.pem ## 429s, shared bucket and fail open, both gat
 
 smoke-shutdown: .keys/public.pem ## SIGTERM during a slow request: it must still finish (restarts both gateways)
 	scripts/smoke-shutdown.sh
+
+cold-start: ## Image size and time from docker start to ready, both gateways
+	bench/cold-start.sh 5
 
 # Gateways require a JWT since phase 2, so every gateway benchmark sends one.
 # Phase 1's no-auth numbers stay in bench/results/s1/20261107-164406.
