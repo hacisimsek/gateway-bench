@@ -11,8 +11,8 @@ configMapGenerator:
 # CI writes the newest tag here after every green build on main.
 images:
   - name: ghcr.io/hacisimsek/gateway-bench/upstream
-    newTag: sha-69b9714
+    newTag: sha-5eaf535
   - name: ghcr.io/hacisimsek/gateway-bench/gateway-rust
-    newTag: sha-69b9714
+    newTag: sha-5eaf535
   - name: ghcr.io/hacisimsek/gateway-bench/gateway-java
-    newTag: sha-69b9714
+    newTag: sha-5eaf535
