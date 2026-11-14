@@ -17,7 +17,11 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design.
 | 3 | Redis rate limiting (shared Lua token bucket) + benchmark | ✅ |
 | 4 | Metrics, traces, JSON logs, graceful shutdown + full-chain benchmark (S2) | ✅ |
 | 5 | CI (GitHub Actions → GHCR, amd64 + arm64), distroless images, Java AOT cache | ✅ |
-| 6–7 | GitOps, full benchmarks | |
+| 6 | kind + Argo CD GitOps for test, preprod and prod ([deploy/](deploy/)) | ✅ |
+| 7 | Fair comparison (2 CPU / 1 GiB, Java G1) and results | ✅ |
+
+**Results and recommendation: [docs/RESULTS.md](docs/RESULTS.md).** In short: on the same 2 CPUs
+Rust carried 20k rps, Java about 4.6k rps with fair JVM settings (and collapsed at default ones).
 
 ## Run locally
 
@@ -33,6 +37,7 @@ make cold-start  # image size and time to ready, both gateways
 make test        # unit tests for all services
 make bench-jwt   # both gateways with a JWT on every request (~16 min)
 make bench-s2    # full chain: JWT + rate limit + metrics + tracing (~16 min)
+GATEWAY_MEM=1g JAVA_TOOL_OPTIONS=-XX:+UseG1GC make bench-s2 LABEL=s2-fair  # the fair run
 make down
 ```
 

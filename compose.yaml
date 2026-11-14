@@ -33,7 +33,7 @@ services:
       <<: *gateway-env
       OTEL_SERVICE_NAME: gateway-rust
     cpus: 2
-    mem_limit: 512m
+    mem_limit: ${GATEWAY_MEM:-512m} # same for both gateways
     depends_on: [upstream, redis]
 
   gateway-java:
@@ -45,7 +45,7 @@ services:
       # JVM flags for experiments, e.g. JAVA_TOOL_OPTIONS="-XX:+UseG1GC" docker compose up -d
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
     cpus: 2
-    mem_limit: 512m
+    mem_limit: ${GATEWAY_MEM:-512m} # same for both gateways
     depends_on: [upstream, redis]
 
   # Observability: Prometheus scrapes metrics, Jaeger receives traces over OTLP, Grafana shows both.
